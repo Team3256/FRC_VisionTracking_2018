@@ -6,6 +6,10 @@ Classify an image using individual model files
 
 Use this script as an example to build your own tool
 """
+import constants
+from networktables import NetworkTables
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 import argparse
 import os
@@ -87,7 +91,7 @@ def get_transformer(deploy_file, mean_file=None):
 
 def load_image(path, height, width, mode='RGB'):
     """
-    Load an image from disk
+    Load an image from disk - currently unused
 
     Returns an np.ndarray (channels x width x height)
 
@@ -151,57 +155,9 @@ def forward_pass(images, net, transformer, batch_size=None):
 
     return scores
 
-def read_labels(labels_file):
-    """
-    Returns a list of strings
-
-    Arguments:
-    labels_file -- path to a .txt file
-    """
-    if not labels_file:
-        #print 'WARNING: No labels file provided. Results will be difficult to interpret.'
-        return None
-
-    labels = []
-    with open(labels_file) as infile:
-        for line in infile:
-            label = line.strip()
-            if label:
-                labels.append(label)
-    assert len(labels), 'No labels found'
-    return labels
-
-#moving this up here saves runtime
-net = get_net('model.caffemodel', 'model.prototxt')
-transformer = get_transformer('model.prototxt')
-_, channels, height, width = transformer.inputs['data']
-if channels == 3:
-    mode = 'RGB'
-elif channels == 1:
-    mode = 'L'
-else:
-    raise ValueError('Invalid number for channels: %s' % channels)
-
-def classify(image):
-    """
-    Classify some images against a Caffe model and print the results
-
-    Arguments:
-    image -- cv2 image
-    """
-    # Load the model and images
-    '''
-    net = get_net(caffemodel, deploy_file, use_gpu)
-    transformer = get_transformer(deploy_file, mean_file)
+def classify(image, net, transformer):
     _, channels, height, width = transformer.inputs['data']
-    if channels == 3:
-        mode = 'RGB'
-    elif channels == 1:
-        mode = 'L'
-    else:
-        raise ValueError('Invalid number for channels: %s' % channels)
-    '''
-    #images = [load_image(image_file, height, width, mode) for image_file in image_files]
+    
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     pil_image = scipy.misc.imresize(image, (height, width), 'bilinear')
     images = [pil_image]
@@ -217,36 +173,54 @@ def classify(image):
     for i, image_results in enumerate(scores):
         print '==> Image #%d' % i
         imcv = cv2.cvtColor(images[i], cv2.COLOR_RGB2BGR)
+        points_flat = []
         for left, top, right, bottom, confidence in image_results:
             if confidence == 0:
                 continue
-
+            
+            left_i = int(round(left))
+            top_i = int(round(top))
+            right_i = int(round(right))
+            bottom_i = int(round(bottom))
+            
             print 'Detected object at [(%d, %d), (%d, %d)] with "confidence" %f' % (
-                int(round(left)),
-                int(round(top)),
-                int(round(right)),
-                int(round(bottom)),
+                left_i,
+                top_i,
+                right_i,
+                bottom_i,
                 confidence,
             )
-
+            cv2.putText(imcv, "cube", (int((left + right) / 2) - 20, int((top + bottom) / 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             cv2.rectangle(imcv, (left, top), (right, bottom), (0, 0, 255), 2)
+            
+            if constants.SEND_COORDS:
+                points_flat += [left_i, top_i, right_i, bottom_i]
+        print points_flat
+        if constants.SEND_COORDS:
+            NetworkTables.getTable('SmartDashboard').putNumberArray('cube_bboxes', points_flat)
         
     return imcv
 
-
 if __name__ == '__main__':
     script_start_time = time.time()
+    
+    if constants.SEND_COORDS:
+        NetworkTables.initialize(server=constants.ROBORIO_IP)
+    
+    #moving this here saves runtime
+    net = get_net(constants.MODEL_FILENAME, constants.PROTO_FILENAME)
+    transformer = get_transformer(constants.PROTO_FILENAME)
 
-    cam = cv2.VideoCapture(0)
+    cam = cv2.VideoCapture(constants.CAM_LOCATION)
     while True:
         _, image = cam.read()
-        #cv2.imwrite("frame.jpg", image)
-        imcv = classify(image)
-        cv2.imshow('image', imcv)    
-        k = cv2.waitKey(1)
+        imcv = classify(image, net, transformer)
+        if constants.SHOW_FRAMES:
+            cv2.imshow('image', imcv)    
+            k = cv2.waitKey(1)
 
-        if k == 27:         # If escape was pressed exit
-            cv2.destroyAllWindows()
-            break
+            if k == 27:         # If escape was pressed exit
+                cv2.destroyAllWindows()
+                break
 
     print 'Script took %f seconds.' % (time.time() - script_start_time,)
