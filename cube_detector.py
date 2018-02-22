@@ -14,12 +14,15 @@ logging.basicConfig(level=logging.DEBUG)
 import argparse
 import os
 import time
+import math
 
 from google.protobuf import text_format
 import numpy as np
 import PIL.Image
 import scipy.misc
 import cv2
+
+# 320 x 240
 
 os.environ['GLOG_minloglevel'] = '2' # Suppress most caffe output
 import caffe
@@ -155,6 +158,10 @@ def forward_pass(images, net, transformer, batch_size=None):
 
     return scores
 
+def getAngle(xcord):
+    distanceFromCenter = ((constants.WIDTH_RES - 1) / 2) - xcord
+    return (math.atan(distanceFromCenter / constants.FOCAL) * 180) / math.pi
+
 def classify(image, net, transformer):
     _, channels, height, width = transformer.inputs['data']
     
@@ -174,6 +181,7 @@ def classify(image, net, transformer):
         print '==> Image #%d' % i
         imcv = cv2.cvtColor(images[i], cv2.COLOR_RGB2BGR)
         points_flat = []
+        angle = 0
         for left, top, right, bottom, confidence in image_results:
             if confidence == 0:
                 continue
@@ -190,7 +198,12 @@ def classify(image, net, transformer):
                 bottom_i,
                 confidence,
             )
-            cv2.putText(imcv, "cube", (int((left + right) / 2) - 20, int((top + bottom) / 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            centerX = int((left + right) / 2)
+            centerY = int((top + bottom) / 2)
+            #cv2.circle(imcv, (centerX, centerY), 5, (0,0,255), -1)
+            size = cv2.getTextSize(str(getAngle(centerX)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            angle = getAngle(centerX)
+            cv2.putText(imcv, str(getAngle(centerX)), (int((left + right) / 2) - size[0][0] / 2, int((top + bottom) / 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
             cv2.rectangle(imcv, (left, top), (right, bottom), (0, 0, 255), 2)
             
             if constants.SEND_COORDS:
@@ -198,6 +211,7 @@ def classify(image, net, transformer):
         print points_flat
         if constants.SEND_COORDS:
             NetworkTables.getTable('SmartDashboard').putNumberArray('cube_bboxes', points_flat)
+            NetworkTables.getTable('SmartDashboard').putNumber('cube_angle', angle)
         
     return imcv
 
