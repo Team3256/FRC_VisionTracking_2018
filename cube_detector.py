@@ -22,6 +22,12 @@ import PIL.Image
 import scipy.misc
 import cv2
 
+from PIL import Image
+import threading
+from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+from SocketServer import ThreadingMixIn
+import StringIO
+
 # 320 x 240
 
 os.environ['GLOG_minloglevel'] = '2' # Suppress most caffe output
@@ -229,6 +235,10 @@ if __name__ == '__main__':
     while True:
         _, image = cam.read()
         imcv = classify(image, net, transformer)
+        imgRGB=cv2.cvtColor(imcv,cv2.COLOR_BGR2RGB)
+        jpg = Image.fromarray(imgRGB)
+        tmpFile = StringIO.StringIO()
+        jpg.save("file.jpg",'JPEG')
         if constants.SHOW_FRAMES:
             cv2.imshow('image', imcv)    
             k = cv2.waitKey(1)
