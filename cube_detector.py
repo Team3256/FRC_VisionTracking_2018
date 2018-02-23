@@ -27,6 +27,12 @@ import threading
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 from SocketServer import ThreadingMixIn
 import StringIO
+import io
+
+import socket
+
+client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+client.connect("/tmp/socket_test.s")
 
 # 320 x 240
 
@@ -237,8 +243,11 @@ if __name__ == '__main__':
         imcv = classify(image, net, transformer)
         imgRGB=cv2.cvtColor(imcv,cv2.COLOR_BGR2RGB)
         jpg = Image.fromarray(imgRGB)
-        tmpFile = StringIO.StringIO()
-        jpg.save("file.jpg",'JPEG')
+        tmpFile = io.BytesIO()
+        jpg.save(tmpFile, 'JPEG')
+        print(len(tmpFile.getvalue()))
+	client.send(tmpFile.getvalue())
+        tmpFile.close()
         if constants.SHOW_FRAMES:
             cv2.imshow('image', imcv)    
             k = cv2.waitKey(1)

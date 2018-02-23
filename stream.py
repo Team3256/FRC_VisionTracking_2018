@@ -3,28 +3,40 @@ from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 from SocketServer import ThreadingMixIn
 import StringIO
 import time
+import socket
+import os
+import io
 from PIL import Image
+import subprocess
+
+if os.path.exists("/tmp/socket_test.s"):
+  os.remove("/tmp/socket_test.s")    
+
+server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+server.bind("/tmp/socket_test.s")
+
+server.listen(1)
+
+client_socket, address = server.accept()
+
+image = None
 
 class CamHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        global image
         if self.path.endswith('.mjpg'):
             self.send_response(200)
             self.send_header('Content-type','multipart/x-mixed-replace; boundary=--jpgboundary')
             self.end_headers()
             while True:
                 try:
-                    try:
-                        jpg = Image.open("file.jpg")
-                    except:
-                        print "This is an error message!"
-                    
-                    tmpFile = StringIO.StringIO()
+                    msg = client_socket.recv(25000)
+                    print("frame with " + str(len(msg)) + " bytes received")
                     self.wfile.write("--jpgboundary")
                     self.send_header('Content-type','image/jpeg')
-                    self.send_header('Content-length',str(tmpFile.len))
+                    self.send_header('Content-length',str(len(msg)))
                     self.end_headers()
-                    jpg.save(self.wfile,'JPEG')
-                    sleep(0.05)
+                    self.wfile.write(msg)
                 except KeyboardInterrupt:
                     break
             return
@@ -43,7 +55,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 def main():
     try:
-        server = ThreadedHTTPServer(('localhost', 8080), CamHandler)
+        server = ThreadedHTTPServer(('10.124.1.152', 8080), CamHandler)
         print "server started"
         server.serve_forever()
     except KeyboardInterrupt:

@@ -4,7 +4,7 @@ ROBORIO_IP = '10.32.56.2' # needed for NetworkTables
 MODEL_FILENAME = 'model.caffemodel' # filename of the DetectNet model file
 PROTO_FILENAME = 'proto.prototxt' # filename of the DetectNet prototxt
 
-SHOW_FRAMES = True # whether or not to display frames using opencv windows
+SHOW_FRAMES = False # whether or not to display frames using opencv windows
 SEND_COORDS = True # whether or not to send coordinates of bboxes over NetworkTables
 
 WIDTH_RES = 360
