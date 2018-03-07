@@ -30,6 +30,7 @@ import StringIO
 import io
 
 import socket
+from struct import pack
 
 client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 client.connect("/tmp/socket_test.s")
@@ -240,13 +241,22 @@ if __name__ == '__main__':
     cam = cv2.VideoCapture(constants.CAM_LOCATION)
     while True:
         _, image = cam.read()
+
+        # Comment the line below if you want lag free video, but with no neural network
         imcv = classify(image, net, transformer)
+
+        # Uncomment the line below if you want lag free video, but with no neural network
+        #imcv = image
+
         imgRGB=cv2.cvtColor(imcv,cv2.COLOR_BGR2RGB)
         jpg = Image.fromarray(imgRGB)
         tmpFile = io.BytesIO()
         jpg.save(tmpFile, 'JPEG')
         print(len(tmpFile.getvalue()))
-	client.send(tmpFile.getvalue())
+        length = pack('>Q', len(tmpFile.getvalue()))
+        client.sendall(length)
+        client.sendall(tmpFile.getvalue())
+        print("finished sending")
         tmpFile.close()
         if constants.SHOW_FRAMES:
             cv2.imshow('image', imcv)    
