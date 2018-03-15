@@ -36,6 +36,7 @@ client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 client.connect("/tmp/socket_test.s")
 
 # 320 x 240
+# All right so this is some cube detector boi
 
 os.environ['GLOG_minloglevel'] = '2' # Suppress most caffe output
 import caffe
