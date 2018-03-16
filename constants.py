@@ -7,6 +7,6 @@ PROTO_FILENAME = 'proto.prototxt' # filename of the DetectNet prototxt
 SHOW_FRAMES = False # whether or not to display frames using opencv windows
 SEND_COORDS = True # whether or not to send coordinates of bboxes over NetworkTables
 
-WIDTH_RES = 320
+WIDTH_RES = 360
 FOV = 4.7
 FOCAL = WIDTH_RES / FOV
