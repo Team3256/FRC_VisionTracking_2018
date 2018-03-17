@@ -33,7 +33,7 @@ import socket
 from struct import pack
 
 client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-client.connect("/tmp/socket_test.s")
+#client.connect("/tmp/socket_test.s")
 
 # 360 x 240
 # All right so this is some cube detector boi
@@ -173,7 +173,7 @@ def forward_pass(images, net, transformer, batch_size=None):
     return scores
 
 def getAngle(xcord):
-    distanceFromCenter = ((constants.WIDTH_RES - 1) / 2) - xcord
+    distanceFromCenter = (((constants.WIDTH_RES - 1) / 2) - xcord) * constants.RATIO_SCALE
     return (math.atan(distanceFromCenter / constants.FOCAL) * 180) / math.pi
 
 def classify(image, net, transformer):
@@ -254,10 +254,10 @@ if __name__ == '__main__':
         tmpFile = io.BytesIO()
         jpg.save(tmpFile, 'JPEG')
         print(len(tmpFile.getvalue()))
-        length = pack('>Q', len(tmpFile.getvalue()))
+        '''length = pack('>Q', len(tmpFile.getvalue()))
         client.sendall(length)
         client.sendall(tmpFile.getvalue())
-        print("finished sending")
+        print("finished sending")'''
         tmpFile.close()
         if constants.SHOW_FRAMES:
             cv2.imshow('image', imcv)    

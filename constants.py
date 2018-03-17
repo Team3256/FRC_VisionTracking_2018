@@ -4,9 +4,10 @@ ROBORIO_IP = '10.32.56.2' # needed for NetworkTables
 MODEL_FILENAME = 'model.caffemodel' # filename of the DetectNet model file
 PROTO_FILENAME = 'proto.prototxt' # filename of the DetectNet prototxt
 
-SHOW_FRAMES = False # whether or not to display frames using opencv windows
-SEND_COORDS = True # whether or not to send coordinates of bboxes over NetworkTables
+SHOW_FRAMES = True # whether or not to display frames using opencv windows
+SEND_COORDS = False # whether or not to send coordinates of bboxes over NetworkTables
 
 WIDTH_RES = 360
-FOV = 4.7
+FOV = 1.0
 FOCAL = WIDTH_RES / FOV
+RATIO_SCALE = (1280.0/720.0) / (360.0/240.0) # needed because processed images are resized to 360x240
