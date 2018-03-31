@@ -179,9 +179,6 @@ def classify(image, net, transformer):
     # Format of scores is [ batch_size x max_bbox_per_image x 5 (xl, yt, xr, yb, confidence) ]
     # https://github.com/NVIDIA/caffe/blob/v0.15.13/python/caffe/layers/detectnet/clustering.py#L81
     imcv = None
-    biggestAngle = 0
-    biggestWidth = 0
-    biggestBoxCords = []
     for i, image_results in enumerate(scores):
         print '==> Image #%d' % i
         imcv = cv2.cvtColor(images[i], cv2.COLOR_RGB2BGR)
@@ -203,75 +200,54 @@ def classify(image, net, transformer):
                 bottom_i,
                 confidence,
             )
-
-            # Get center cube position for angle detection
             centerX = int((left + right) / 2)
-            #centerY = int((top + bottom) / 2)        
-
+            centerY = int((top + bottom) / 2)
             #cv2.circle(imcv, (centerX, centerY), 5, (0,0,255), -1)
-
-            # Draw bounding box on screen and get angle
-            angle = getAngle(centerX)
             size = cv2.getTextSize(str(getAngle(centerX)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            angle = getAngle(centerX)
             cv2.putText(imcv, str(getAngle(centerX)), (int((left + right) / 2) - size[0][0] / 2, int((top + bottom) / 2)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
             cv2.rectangle(imcv, (left, top), (right, bottom), (0, 0, 255), 2)
-
-            # Check to see if width is greater, then set this as the greatest if true
-            width = right_i - left_i
-            if (width > biggestWidth):
-                biggestWidth = width
-                biggestBoxCords = [left_i, top_i, right_i, bottom_i]
-                biggestAngle = angle
             
             if constants.SEND_COORDS:
                 points_flat += [left_i, top_i, right_i, bottom_i]
-
-        print("\n----Detection Summary----")
-        print("Angle found for biggest cube: " + str(biggestAngle))
-        print("Width of biggest cube: " + str(biggestWidth))
-        print("Box cords: " + str(biggestBoxCords))
-
+        print points_flat
         if constants.SEND_COORDS:
-            NetworkTables.getTable('SmartDashboard').putNumberArray('cube_bboxes', biggestBoxCords)
-            NetworkTables.getTable('SmartDashboard').putNumber('cube_angle', biggestAngle)
+            NetworkTables.getTable('SmartDashboard').putNumberArray('cube_bboxes', points_flat)
+            NetworkTables.getTable('SmartDashboard').putNumber('cube_angle', angle)
         
         
     return imcv
 
 class CamHandler(BaseHTTPRequestHandler):
-    # Load neural network when server starts
-    net = get_net(constants.MODEL_FILENAME, constants.PROTO_FILENAME)
-    transformer = get_transformer(constants.PROTO_FILENAME)
-
     def do_GET(self):
-        if self.path.endswith('.mjpg') or self.path.endswith('.mjpeg'):
-            print("Requested to connect to camera")
+        if self.path.endswith('.mjpg'):
+            print("Get request")
+            if constants.NEURAL_NETWORK:
+                net = get_net(constants.MODEL_FILENAME, constants.PROTO_FILENAME)
+                transformer = get_transformer(constants.PROTO_FILENAME)
             self.send_response(200)
             self.send_header('Content-type','multipart/x-mixed-replace; boundary=--jpgboundary')
             self.end_headers()
             while True:
                 try:
                     _, image = cam.read()
-                    # Resize input from the camera and run neural network
-                    if constants.NEURAL_NETWORK or NetworkTables.getTable('SmartDashboard').getBoolean('neural_network', False):
-                        imcv = classify(imcv, self.net, self.transformer)
-                    imcv = cv2.resize(imcv, constants.RESIZE_RES)
-                    imgRGB = cv2.cvtColor(imcv,cv2.COLOR_BGR2RGB)
+                    print("Sending image.")
+                    imcv = image
+                    if constants.NEURAL_NETWORK:
+                        imcv = classify(image, net, transformer)
+                    imgRGB=cv2.cvtColor(imcv,cv2.COLOR_BGR2RGB)
                     jpg = Image.fromarray(imgRGB)
                     tmpFile = io.BytesIO()
                     jpg.save(tmpFile, 'JPEG')
-                    imageSize = len(tmpFile.getvalue())
-                    print("Sending image that is " + str(imageSize) + " bytes")
                     if constants.SHOW_FRAMES:
                         cv2.imshow('image', imcv)
                         cv2.waitKey(1)  
                     self.wfile.write("--jpgboundary")
                     self.send_header('Content-type','image/jpeg')
-                    self.send_header('Content-length',str(imageSize))
+                    self.send_header('Content-length',str(len(tmpFile.getvalue())))
                     self.end_headers()
                     self.wfile.write(tmpFile.getvalue())
                     tmpFile.close()
-                    print("Image sent.")
                 except KeyboardInterrupt:
                     break
             return
@@ -292,9 +268,8 @@ def main():
     try:
         if constants.SEND_COORDS:
             NetworkTables.initialize(server=constants.ROBORIO_IP)
-        # Start HTTP server
-        server = ThreadedHTTPServer((constants.STREAM_IP, constants.STREAM_PORT), CamHandler)
-        print "Camera server started successfully"
+        server = ThreadedHTTPServer(('192.168.7.87', 8080), CamHandler)
+        print "server started"
         server.serve_forever()
     except KeyboardInterrupt:
         server.socket.close()
