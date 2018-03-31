@@ -254,7 +254,7 @@ class CamHandler(BaseHTTPRequestHandler):
                     _, image = cam.read()
                     # Resize input from the camera and run neural network
                     if constants.NEURAL_NETWORK or NetworkTables.getTable('SmartDashboard').getBoolean('neural_network', False):
-                        imcv = classify(imcv, self.net, self.transformer)
+                        imcv = classify(image, self.net, self.transformer)
                     imcv = cv2.resize(imcv, constants.RESIZE_RES)
                     imgRGB = cv2.cvtColor(imcv,cv2.COLOR_BGR2RGB)
                     jpg = Image.fromarray(imgRGB)
